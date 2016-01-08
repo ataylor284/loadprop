@@ -1,6 +1,8 @@
 loadprop
 ========
 
+[![Build Status](https://travis-ci.org/ataylor284/loadprop.png?branch=master)](https://travis-ci.org/ataylor284/loadprop)
+
 A better way to handle properties config files in Java 8.
 
 loadprop loads in properties by mapping them to a plain old Java
