@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>PropertiesLoader.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">loadprop</a> &gt; <a href="index.source.html" class="el_package">ca.redtoad.loadprop</a> &gt; <span class="el_source">PropertiesLoader.java</span></div><h1>PropertiesLoader.java</h1><pre class="source lang-java linenums">package ca.redtoad.loadprop;
+
+import java.beans.BeanInfo;
+import java.beans.Introspector;
+import java.beans.IntrospectionException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringReader;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+<span class="fc" id="L14">public class PropertiesLoader {</span>
+
+<span class="fc" id="L16">    private PropertiesLoaderConfiguration config = PropertiesLoaderConfiguration.DEFAULT;</span>
+
+    public &lt;T&gt; T load(Class&lt;T&gt; propertiesClass, String propsString) throws IOException {
+<span class="fc" id="L19">        Properties props = new Properties();</span>
+<span class="fc" id="L20">        props.load(new StringReader(propsString));</span>
+<span class="fc" id="L21">        return load(propertiesClass, props);</span>
+    }
+
+    public &lt;T&gt; T load(Class&lt;T&gt; propertiesClass, InputStream in) throws IOException {
+<span class="nc" id="L25">        Properties props = new Properties();</span>
+<span class="nc" id="L26">        props.load(in);</span>
+<span class="nc" id="L27">        return load(propertiesClass, props);</span>
+    }
+
+    public &lt;T&gt; T load(Class&lt;T&gt; pojoClass, Properties props) {
+        try {
+<span class="fc" id="L32">            T pojo = pojoClass.newInstance();</span>
+<span class="fc" id="L33">            Map&lt;String, PropertySetter&gt; propertySetters = getPropertySettersForClass(pojoClass);</span>
+
+<span class="fc" id="L35">            Set&lt;String&gt; unboundPropNames = new HashSet&lt;String&gt;();</span>
+<span class="fc" id="L36">            unboundPropNames.addAll(propertySetters.keySet());</span>
+<span class="fc" id="L37">            unboundPropNames.removeAll(config.getPropertiesToIgnore());</span>
+<span class="fc" id="L38">            List&lt;String&gt; unmatchedProps = new ArrayList&lt;String&gt;();</span>
+<span class="fc" id="L39">            List&lt;String&gt; errorMessages = new ArrayList&lt;String&gt;();</span>
+
+<span class="fc bfc" id="L41" title="All 2 branches covered.">            for (String name : props.stringPropertyNames()) {</span>
+<span class="fc bfc" id="L42" title="All 2 branches covered.">                if (propertySetters.containsKey(name)) {</span>
+<span class="fc" id="L43">                    PropertySetter propertySetter = propertySetters.get(name);</span>
+                    try {
+<span class="fc" id="L45">                        propertySetter.setProperty(pojo, cast(name, props.getProperty(name), propertySetter.getTargetClass()));</span>
+<span class="fc" id="L46">                    } catch (IllegalArgumentException e) {</span>
+<span class="fc" id="L47">                        errorMessages.add(&quot;Error setting property &quot; + name + &quot; to value \&quot;&quot; + props.getProperty(name) + &quot;\&quot;: &quot; + e);</span>
+<span class="fc" id="L48">                    }</span>
+<span class="fc" id="L49">                    unboundPropNames.remove(name);</span>
+<span class="fc" id="L50">                } else {</span>
+<span class="fc" id="L51">                    unmatchedProps.add(name);</span>
+                }
+<span class="fc" id="L53">            }</span>
+
+<span class="fc bfc" id="L55" title="All 2 branches covered.">            for (Iterator&lt;String&gt; it = unboundPropNames.iterator(); it.hasNext(); ) {</span>
+<span class="fc" id="L56">                String unboundPropName = it.next();</span>
+<span class="fc" id="L57">                PropertySetter propertySetter = propertySetters.get(unboundPropName);</span>
+<span class="fc bfc" id="L58" title="All 2 branches covered.">                if (propertySetter.isOptional()) {</span>
+<span class="fc" id="L59">                    propertySetter.setEmpty(pojo);</span>
+<span class="fc" id="L60">                    it.remove();</span>
+                }
+<span class="fc" id="L62">            }</span>
+
+<span class="fc bfc" id="L64" title="All 2 branches covered.">            if (!unboundPropNames.isEmpty()) {</span>
+<span class="fc" id="L65">                errorMessages.add(&quot;Properties missing from properties file: &quot; +</span>
+<span class="fc" id="L66">                                  unboundPropNames.stream().collect(Collectors.joining(&quot;, &quot;)) +</span>
+                                  &quot;.&quot;);
+            }
+<span class="fc bfc" id="L69" title="All 2 branches covered.">            if (!unmatchedProps.isEmpty()) {</span>
+<span class="fc" id="L70">                errorMessages.add(&quot;Properties in properties file not bound to properties class: &quot; +</span>
+<span class="fc" id="L71">                                  unmatchedProps.stream().collect(Collectors.joining(&quot;, &quot;)) +</span>
+                                  &quot;.&quot;);
+            }
+<span class="fc bfc" id="L74" title="All 2 branches covered.">            if (!errorMessages.isEmpty()) {</span>
+<span class="fc" id="L75">                throw new PropertiesLoaderException(errorMessages.stream().collect(Collectors.joining(&quot;\n&quot;)));</span>
+            }
+
+<span class="fc" id="L78">            return pojo;</span>
+<span class="fc" id="L79">        } catch (InstantiationException | IllegalAccessException e) {</span>
+<span class="fc" id="L80">            throw new PropertiesLoaderException(&quot;Unable to instantiate: &quot; + pojoClass, e);</span>
+<span class="nc" id="L81">        } catch (IntrospectionException e) {</span>
+<span class="nc" id="L82">            throw new PropertiesLoaderException(&quot;Unable to introspect: &quot; + pojoClass, e);</span>
+        }
+    }
+
+    private Map&lt;String, PropertySetter&gt; getPropertySettersForClass(Class&lt;?&gt; pojoClass) throws IntrospectionException {
+<span class="fc" id="L87">        BeanInfo beanInfo = Introspector.getBeanInfo(pojoClass);</span>
+
+<span class="fc" id="L89">        return Stream.concat(</span>
+<span class="fc" id="L90">            Arrays.stream(pojoClass.getFields()).map(f -&gt; new FieldPropertySetter(f)),</span>
+<span class="fc" id="L91">            Arrays.stream(beanInfo.getPropertyDescriptors()).map(d -&gt; new BeanPropertySetter(d)))</span>
+<span class="fc" id="L92">            .collect(Collectors.toMap(PropertySetter::getName, Function.identity()));</span>
+    }
+
+    /**
+     * Cast a string value to the given type.
+     */
+    private &lt;T&gt; T cast(String name, String value, Class&lt;T&gt; targetType) {
+<span class="fc bfc" id="L99" title="All 2 branches covered.">        if (targetType == String.class) {</span>
+<span class="fc" id="L100">            return (T) value;</span>
+<span class="fc bfc" id="L101" title="All 4 branches covered.">        } else if (targetType == Integer.class || targetType == Integer.TYPE) {</span>
+<span class="fc" id="L102">            return (T) Integer.decode(cleanNumeric(value));</span>
+<span class="fc bfc" id="L103" title="All 4 branches covered.">        } else if (targetType == Byte.class || targetType == Byte.TYPE) {</span>
+<span class="fc" id="L104">            return (T) Byte.decode(cleanNumeric(value));</span>
+<span class="fc bfc" id="L105" title="All 4 branches covered.">        } else if (targetType == Short.class || targetType == Short.TYPE) {</span>
+<span class="fc" id="L106">            return (T) Short.decode(cleanNumeric(value));</span>
+<span class="fc bfc" id="L107" title="All 4 branches covered.">        } else if (targetType == Long.class || targetType == Long.TYPE) {</span>
+<span class="fc" id="L108">            return (T) Long.decode(cleanNumeric(value));</span>
+<span class="fc bfc" id="L109" title="All 4 branches covered.">        } else if (targetType == Float.class || targetType == Float.TYPE) {</span>
+<span class="fc" id="L110">            return (T) Float.valueOf(value);</span>
+<span class="fc bfc" id="L111" title="All 4 branches covered.">        } else if (targetType == Double.class || targetType == Double.TYPE) {</span>
+<span class="fc" id="L112">            return (T) Double.valueOf(value);</span>
+<span class="fc bfc" id="L113" title="All 4 branches covered.">        } else if (targetType == Boolean.class || targetType == Boolean.TYPE) {</span>
+<span class="fc" id="L114">            return (T) Boolean.valueOf(value);</span>
+<span class="fc bfc" id="L115" title="All 4 branches covered.">        } else if (targetType == Character.class || targetType == Character.TYPE) {</span>
+<span class="fc bfc" id="L116" title="All 2 branches covered.">            if (value.length() != 1) {</span>
+<span class="fc" id="L117">                throw new IllegalArgumentException(&quot;Input \&quot;&quot; + value + &quot;\&quot; is not of length 1&quot;);</span>
+            }
+<span class="fc" id="L119">            return (T) Character.valueOf(value.charAt(0));</span>
+        } else {
+<span class="fc" id="L121">            throw new PropertiesLoaderException(&quot;Can't convert '&quot; + value + &quot;' to &quot; + targetType + &quot; for property &quot; + name + &quot;.&quot;);</span>
+        }
+    }
+
+    /**
+     * Strip off leading zeros unless in hex format to avoid octal
+     * conversions.
+     */
+    private String cleanNumeric(String value) {
+<span class="fc bfc" id="L130" title="All 2 branches covered.">        if (value.contains(&quot;0x&quot;)) {</span>
+<span class="fc" id="L131">            return value;</span>
+        } else {
+<span class="fc" id="L133">            int leadingZeros = 0;</span>
+<span class="fc bfc" id="L134" title="All 2 branches covered.">            while (value.substring(leadingZeros).startsWith(&quot;0&quot;)) {</span>
+<span class="fc" id="L135">                leadingZeros++;</span>
+            }
+<span class="fc" id="L137">            return value.substring(leadingZeros);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

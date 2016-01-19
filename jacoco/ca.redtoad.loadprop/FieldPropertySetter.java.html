@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>FieldPropertySetter.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">loadprop</a> &gt; <a href="index.source.html" class="el_package">ca.redtoad.loadprop</a> &gt; <span class="el_source">FieldPropertySetter.java</span></div><h1>FieldPropertySetter.java</h1><pre class="source lang-java linenums">package ca.redtoad.loadprop;
+
+import java.lang.reflect.Field;
+import java.util.Optional;
+
+class FieldPropertySetter extends ReflectionPropertySetter implements PropertySetter {
+    private final Field field;
+
+<span class="fc" id="L9">    public FieldPropertySetter(Field field) {</span>
+<span class="fc" id="L10">        this.field = field;</span>
+<span class="fc" id="L11">    }</span>
+
+    public String getName() {
+<span class="fc" id="L14">        return field.getName();</span>
+    }
+
+    protected void setPropertyInternal(Object pojo, Object value) {
+        try {
+<span class="fc" id="L19">            field.set(pojo, value);</span>
+<span class="fc" id="L20">        } catch (IllegalAccessException e) {</span>
+<span class="fc" id="L21">            throw new PropertiesLoaderException(&quot;Property &quot; + getName() + &quot; can't be set.&quot;, e);</span>
+<span class="fc" id="L22">        }</span>
+<span class="fc" id="L23">    }</span>
+
+    public Class&lt;?&gt; getTargetClass() {
+<span class="fc" id="L26">        Class&lt;?&gt; fieldClass = field.getType();</span>
+<span class="fc bfc" id="L27" title="All 2 branches covered.">        if (isOptional()) {</span>
+<span class="fc" id="L28">            return getParameterizedType(field.getGenericType());</span>
+        } else {
+<span class="fc" id="L30">            return fieldClass;</span>
+        }
+    }
+
+    public boolean isOptional() {
+<span class="fc" id="L35">        return field.getType().equals(Optional.class);</span>
+    }
+
+    public String toString() {
+<span class="nc" id="L39">        return &quot;FieldPropertySetter(&quot; + getName() + &quot;)&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>
