@@ -118,7 +118,7 @@ public class PropertiesLoader {
             }
             return (T) Character.valueOf(value.charAt(0));
         } else {
-            throw new PropertiesLoaderException("Can't convert '" + value + "' to class " + targetType + " for property " + name + ".");
+            throw new PropertiesLoaderException("Can't convert '" + value + "' to " + targetType + " for property " + name + ".");
         }
     }
 

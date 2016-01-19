@@ -5,7 +5,7 @@ import java.util.Set;
 
 public class PropertiesLoaderConfiguration {
 
-    public static PropertiesLoaderConfiguration DEFAULT =
+    public static final PropertiesLoaderConfiguration DEFAULT =
         new PropertiesLoaderConfiguration()
         .withPropertiesToIgnore(Collections.singleton("class"));
 

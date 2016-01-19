@@ -113,12 +113,41 @@ charField = a
         e.message == "Error setting property charField to value \"aa\": java.lang.IllegalArgumentException: Input \"aa\" is not of length 1"
     }
 
+    def 'Unconvertable type property should cause error.'() {
+        when:
+        def loaded = loader.load(BadPropertyType, props)
+
+        then:
+        def e = thrown(PropertiesLoaderException)
+        e.message == "Can't convert '100' to class java.io.File for property intField."
+    }
+
+    def 'Final property should cause error.'() {
+        when:
+        def loaded = loader.load(FinalProperty, props)
+
+        then:
+        def e = thrown(PropertiesLoaderException)
+        e.message == "Property intField can't be set."
+        e.cause instanceof IllegalAccessException
+    }
+
     def 'Leading zeros should not be interpreted as octal.'() {
         when:
         def loaded = loader.load(BeanProperties, props.replaceFirst("intField = 100", "intField = 0100"))
 
         then:
         loaded.intField == 100
+    }
+
+    def 'Properties POJO without default constructor should cause error.'() {
+        when:
+        def loaded = loader.load(BadPojo, props)
+
+        then:
+        def e = thrown(PropertiesLoaderException)
+        e.message == "Unable to instantiate: class ca.redtoad.loadprop.BadPojo"
+        e.cause instanceof InstantiationException
     }
 
 }
